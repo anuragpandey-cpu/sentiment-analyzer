@@ -1,0 +1,487 @@
+{% extends "layout.html" %}
+
+{% block title %}Dashboard — SentimentAI{% endblock %}
+
+{% block extra_css %}
+<style>
+/* INDEX SPECIFIC BENTO UI */
+.header-sect { text-align: center; margin-bottom: 48px; }
+.htitle { font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 800; letter-spacing: -0.03em; margin-bottom: 16px; line-height: 1.1; color: var(--text-primary); }
+.hsub { font-size: 16px; color: var(--text-secondary); max-width: 600px; margin: 0 auto; line-height: 1.6; font-weight: 500;}
+
+.bento-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-bottom: 32px; }
+.col-span-2 { grid-column: span 2; }
+.col-span-3 { grid-column: span 3; }
+
+/* INPUT CARD */
+.input-card { padding: 32px; display: flex; flex-direction: column; gap: 16px; }
+.input-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;}
+.ih-title { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+.ih-count { font-size: 13px; color: var(--text-tertiary); font-weight: 500; }
+textarea { 
+  width: 100%; min-height: 140px; background: var(--bg); border: 1px solid var(--border); 
+  border-radius: var(--radius-md); padding: 16px; color: var(--text-primary); 
+  font-family: inherit; font-size: 15px; resize: vertical; outline: none; transition: border-color 0.2s;
+}
+textarea:focus { border-color: var(--text-tertiary); }
+textarea::placeholder { color: var(--text-tertiary); }
+
+.samples { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 16px; }
+.chip { padding: 6px 14px; border-radius: 100px; border: 1px solid var(--border); font-size: 13px; font-weight: 500; color: var(--text-secondary); cursor: pointer; background: var(--surface); transition: all .2s; }
+.chip:hover { border-color: var(--text-tertiary); color: var(--text-primary); background: var(--surface-hover); }
+
+/* RESULT CARD */
+.res-card { padding: 32px; display: none; flex-direction: column; justify-content: space-between; }
+.r-main { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 24px; }
+.r-emoji { font-size: 48px; line-height: 1; }
+.r-text-block { display: flex; flex-direction: column; gap: 4px; }
+.r-label { font-size: 24px; font-weight: 800; text-transform: capitalize; letter-spacing: -0.02em; color: var(--text-primary); }
+.r-conf { font-size: 13px; color: var(--text-secondary); font-weight: 600; background: var(--bg); padding: 4px 10px; border-radius: 100px; display:inline-block;}
+
+.r-prob-bars { display: flex; flex-direction: column; gap: 14px; }
+.p-row { display: flex; align-items: center; gap: 12px; }
+.p-lbl { width: 44px; font-size: 12px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; }
+.p-track { flex: 1; height: 8px; background: var(--bg); border-radius: 4px; overflow: hidden; border: 1px solid var(--border); }
+.p-fill { height: 100%; border-radius: 4px; width: 0; transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
+.p-val { width: 36px; text-align: right; font-size: 12px; font-weight: 700; color: var(--text-primary); }
+.r-actions { margin-top: 32px; display: flex; gap: 12px; }
+
+.empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; color: var(--text-tertiary); padding: 40px; }
+.empty-state svg { width: 48px; height: 48px; margin-bottom: 16px; opacity: 0.5; }
+
+/* STATS ROW */
+.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; margin-bottom: 24px; }
+.stat-box { padding: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+.stat-val { font-size: 36px; font-weight: 800; letter-spacing: -0.04em; margin-bottom: 6px; color: var(--text-primary); }
+.stat-lbl { font-size: 13px; color: var(--text-tertiary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+
+/* CHARTS ROW */
+.chart-card { padding: 32px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-xl); box-shadow: var(--shadow-sm); }
+.ctit { font-size: 16px; font-weight: 700; color: var(--text-primary); margin-bottom: 24px; letter-spacing: -0.01em; }
+.cwrap { height: 260px; position: relative; width: 100%; }
+
+/* HISTORY ROW */
+.hist-card { padding: 32px; display: flex; flex-direction: column; gap: 16px; max-height: 500px; overflow-y: auto; }
+.hist-card::-webkit-scrollbar { width: 4px; }
+.hist-card::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.h-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;}
+.h-item { padding: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); transition: all 0.2s; position: relative;}
+.h-item:hover { border-color: var(--text-tertiary); box-shadow: var(--shadow-sm); }
+.h-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.h-badge { padding: 4px 10px; border-radius: 100px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;}
+.h-date { font-size: 12px; color: var(--text-tertiary); font-weight: 500; }
+.h-txt { font-size: 14px; color: var(--text-secondary); line-height: 1.6; }
+.h-del { background: transparent; border: none; color: var(--text-tertiary); cursor: pointer; transition: color 0.2s; padding: 4px; border-radius: 4px;}
+.h-del:hover { color: var(--neg); background: var(--neg-bg); }
+
+/* TOAST */
+.toast { position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--text-primary); color: var(--bg); border-radius: 100px; padding: 12px 24px; font-size: 14px; font-weight: 600; z-index: 9999; opacity: 0; transition: all .4s cubic-bezier(.34,1.56,.64,1); pointer-events: none; box-shadow: var(--shadow-lg); }
+.toast.s { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+@media(max-width: 900px) {
+  .bento-grid { grid-template-columns: 1fr; }
+  .col-span-2, .col-span-3 { grid-column: span 1; }
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="header-sect">
+    <h1 class="htitle">Student Analytics</h1>
+    <p class="hsub">An empathetic, data-driven workspace to interpret classroom sentiment dynamically.</p>
+  </div>
+
+  <div class="bento-grid">
+    <!-- INPUT -->
+    <div class="bento-card input-card col-span-2">
+      <div class="input-header">
+        <span class="ih-title">Feedback Query</span>
+        <span class="ih-count" id="cCount">0 / 2000</span>
+      </div>
+      <textarea id="fInput" maxlength="2000" placeholder="Paste feedback here... e.g., 'The recent lectures have been incredibly easy to follow and the examples are perfectly chosen.'"></textarea>
+      
+      <div class="samples">
+        <button class="chip" onclick="ls('The recent lectures have been incredibly easy to follow and the examples are perfectly chosen.')">Positive Example</button>
+        <button class="chip" onclick="ls('The subject is interesting, though the pacing could be slightly better adjusted.')">Neutral Example</button>
+        <button class="chip" onclick="ls('I am really struggling with the assignments. They do not reflect what is taught in class.')">Negative Example</button>
+      </div>
+
+      <div style="display: flex; gap: 16px; justify-content: space-between; align-items: center; margin-top: auto;">
+        <div style="font-size: 13px; color: var(--neg); font-weight: 500;" id="errMsg"></div>
+        <button class="btn-primary" id="abtn" onclick="analyze()">
+          <svg id="spin" style="display:none; animation: spin 1s linear infinite;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0z"></path></svg>
+          <span id="btnTxt">Run Analysis</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- RESULT TARGET -->
+    <div class="bento-card res-card" id="rCard">
+      <div>
+        <div class="r-main">
+          <div class="r-emoji" id="rEm">✨</div>
+          <div class="r-text-block">
+            <div class="r-label" id="rLbl">Pending</div>
+            <div class="r-conf" id="rConf">Clarity: 0%</div>
+          </div>
+        </div>
+        <div class="r-prob-bars">
+          <div class="p-row"><div class="p-lbl">POS</div><div class="p-track"><div class="p-fill" id="pPos" style="background:var(--pos);"></div></div><div class="p-val" id="vPos">0%</div></div>
+          <div class="p-row"><div class="p-lbl">NEU</div><div class="p-track"><div class="p-fill" id="pNeu" style="background:var(--neu);"></div></div><div class="p-val" id="vNeu">0%</div></div>
+          <div class="p-row"><div class="p-lbl">NEG</div><div class="p-track"><div class="p-fill" id="pNeg" style="background:var(--neg);"></div></div><div class="p-val" id="vNeg">0%</div></div>
+        </div>
+      </div>
+      <div class="r-actions">
+        <button class="btn-secondary" onclick="copyResult()" style="flex:1;">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+          Copy Summary
+        </button>
+      </div>
+    </div>
+    
+    <div class="bento-card" id="rPlace" style="padding: 32px;">
+      <div class="empty-state">
+        <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+        <span>Run an analysis to view instant breakdown.</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom: 24px; margin-top: 56px;">
+    <h2 style="font-size: 20px; font-weight: 700; letter-spacing:-0.02em;">Dashboard Overview</h2>
+    <div style="display:flex; gap:12px;">
+      <button class="btn-secondary" onclick="exportDashboard()">
+         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+         Export PDF
+      </button>
+    </div>
+  </div>
+
+  <div id="exportTarget" style="background:var(--bg); padding: 12px; margin: -12px; border-radius: 20px;">
+    <div class="stats-grid">
+      <div class="stat-box"><div class="stat-val" id="stTot">0</div><div class="stat-lbl">Evaluations</div></div>
+      <div class="stat-box"><div class="stat-val" id="stPos" style="color:var(--pos);">0%</div><div class="stat-lbl">Positive Rate</div></div>
+      <div class="stat-box"><div class="stat-val" id="stNeg" style="color:var(--neg);">0%</div><div class="stat-lbl">Negative Rate</div></div>
+      <div class="stat-box"><div class="stat-val" id="stConf">0%</div><div class="stat-lbl">Model Clarity</div></div>
+    </div>
+
+    <div class="bento-grid">
+      <div class="chart-card col-span-2">
+        <div class="ctit">Clarity Trajectory over Time</div>
+        <div class="cwrap" id="wc1"><div class="empty-state">No data yet.</div></div>
+        <div class="cwrap" id="cc1" style="display:none;"><canvas id="lineChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="ctit">Sentiment Proportion</div>
+        <div class="cwrap" id="wc2"><div class="empty-state">No data yet.</div></div>
+        <div class="cwrap" id="cc2" style="display:none;"><canvas id="pieChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="h-header-row" style="margin-top: 56px; margin-bottom: 24px;">
+    <h2 style="font-size: 20px; font-weight: 700; letter-spacing:-0.02em;">Feedback History</h2>
+    <button class="btn-secondary" onclick="clearHistory()" style="color:var(--neg-fg); background:var(--neg-bg); border-color:transparent; padding: 6px 12px; font-size: 12px;">Clear All</button>
+  </div>
+  
+  <div class="bento-card hist-card" id="histList">
+    <div class="empty-state">Your past analyses will safely appear here, directly stored in your browser.</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* CORE STATE & LOCALSTORAGE */
+let hist = [];
+const STORAGE_KEY = 'sentimentHistoryv2';
+const CM = {
+  Positive: { fg: 'var(--pos-fg)', bg: 'var(--pos-bg)', em: '✨' },
+  Neutral: { fg: 'var(--neu-fg)', bg: 'var(--neu-bg)', em: '⚖️' },
+  Negative: { fg: 'var(--neg-fg)', bg: 'var(--neg-bg)', em: '🫂' }
+};
+const charts = { pie: null, line: null };
+
+function saveHist() { localStorage.setItem(STORAGE_KEY, JSON.stringify(hist)); }
+function loadHist() {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if(saved) {
+    hist = JSON.parse(saved);
+  }
+}
+
+let lastResult = null; // For sharing
+
+/* BINDINGS */
+document.getElementById('fInput').addEventListener('input', function(){ document.getElementById('cCount').textContent = this.value.length + ' / 2000'; });
+
+function ls(t) {
+  const ta = document.getElementById('fInput');
+  ta.value = t;
+  document.getElementById('cCount').textContent = t.length + ' / 2000';
+  ta.focus();
+}
+
+/* INITIALIZATION */
+window.addEventListener('DOMContentLoaded', () => {
+  loadHist();
+  renderHist();
+  updateStats();
+  if(hist.length > 0) {
+    renderCharts();
+  }
+});
+window.addEventListener('themeChanged', () => {
+  if(hist.length > 0) renderCharts(); // re-render charts to accommodate theme text color updates
+});
+
+/* ANALYZE FUNC */
+async function analyze() {
+  const text = document.getElementById('fInput').value.trim();
+  const errMsg = document.getElementById('errMsg');
+  errMsg.textContent = '';
+  
+  if(!text) { errMsg.textContent = 'Please enter feedback text.'; return; }
+  if(text.length > 2000) { errMsg.textContent = 'Text too long.'; return; }
+  
+  setLoad(true);
+  try {
+    const res = await fetch('/predict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({text})
+    });
+    const d = await res.json();
+    if(!res.ok) { errMsg.textContent = d.error || 'Server error occurred.'; return; }
+    
+    lastResult = d;
+    showResult(d);
+    
+    const entry = {
+      id: Date.now(),
+      text: text,
+      date: new Date().toLocaleString(),
+      result: d
+    };
+    hist.unshift(entry);
+    if(hist.length > 50) hist.pop(); // keep last 50
+    
+    saveHist();
+    renderHist();
+    updateStats();
+    renderCharts();
+
+  } catch(e) {
+    errMsg.textContent = 'Could not connect to the server.';
+  } finally {
+    setLoad(false);
+  }
+}
+
+/* UI UPDATERS */
+function setLoad(on) {
+  document.getElementById('abtn').disabled = on;
+  document.getElementById('spin').style.display = on ? 'block' : 'none';
+  document.getElementById('btnTxt').textContent = on ? 'Processing' : 'Run Analysis';
+}
+
+function showResult(d) {
+  document.getElementById('rPlace').style.display = 'none';
+  const rc = document.getElementById('rCard');
+  rc.style.display = 'flex';
+  
+  const m = CM[d.sentiment];
+  document.getElementById('rEm').textContent = m.em;
+  document.getElementById('rLbl').textContent = d.sentiment;
+  document.getElementById('rLbl').style.color = m.fg;
+  document.getElementById('rConf').textContent = `Clarity: ${d.confidence}%`;
+
+  setTimeout(() => {
+    setBar('pPos', 'vPos', d.probabilities.Positive);
+    setBar('pNeu', 'vNeu', d.probabilities.Neutral);
+    setBar('pNeg', 'vNeg', d.probabilities.Negative);
+  }, 50);
+}
+
+function setBar(id, idv, val) {
+  document.getElementById(id).style.width = val + '%';
+  document.getElementById(idv).textContent = val + '%';
+}
+
+/* HISTORY RENDER */
+function renderHist() {
+  const container = document.getElementById('histList');
+  if(hist.length === 0) {
+    container.innerHTML = `<div class="empty-state"><svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg><span>Your past analyses will safely appear here, directly stored in your browser.</span></div>`;
+    return;
+  }
+  
+  container.innerHTML = hist.map((h, i) => {
+    const m = CM[h.result.sentiment];
+    return `
+      <div class="h-item">
+        <div class="h-top">
+          <span class="h-badge" style="background:${m.bg}; color:${m.fg};">${m.em} ${h.result.sentiment}</span>
+          <div style="display:flex; gap:12px; align-items:center;">
+             <span class="h-date">${h.date}</span>
+             <button class="h-del" onclick="deleteEntry(${h.id})" title="Remove"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"/></svg></button>
+          </div>
+        </div>
+        <div class="h-txt">${h.text.replace(/</g, "&lt;")}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function deleteEntry(id) {
+  hist = hist.filter(h => h.id !== id);
+  saveHist();
+  renderHist();
+  updateStats();
+  if(hist.length > 0) renderCharts();
+  else {
+    document.getElementById('wc1').style.display='flex'; document.getElementById('cc1').style.display='none';
+    document.getElementById('wc2').style.display='flex'; document.getElementById('cc2').style.display='none';
+  }
+}
+
+function clearHistory() {
+  if(!confirm('Clear all local analysis history?')) return;
+  hist = [];
+  saveHist();
+  renderHist();
+  updateStats();
+  document.getElementById('wc1').style.display='flex'; document.getElementById('cc1').style.display='none';
+  document.getElementById('wc2').style.display='flex'; document.getElementById('cc2').style.display='none';
+}
+
+/* STATS */
+function updateStats() {
+  const tot = hist.length;
+  document.getElementById('stTot').textContent = tot;
+  if(tot === 0) {
+    document.getElementById('stPos').textContent = '0%';
+    document.getElementById('stNeg').textContent = '0%';
+    document.getElementById('stConf').textContent = '0%';
+    return;
+  }
+  let pos=0, neg=0, csum=0;
+  hist.forEach(h => {
+    if(h.result.sentiment === 'Positive') pos++;
+    else if(h.result.sentiment === 'Negative') neg++;
+    csum += h.result.confidence;
+  });
+  document.getElementById('stPos').textContent = Math.round((pos/tot)*100) + '%';
+  document.getElementById('stNeg').textContent = Math.round((neg/tot)*100) + '%';
+  document.getElementById('stConf').textContent = Math.round(csum/tot) + '%';
+}
+
+/* CHARTS */
+function renderCharts() {
+  document.getElementById('wc1').style.display = 'none'; document.getElementById('cc1').style.display = 'block';
+  document.getElementById('wc2').style.display = 'none'; document.getElementById('cc2').style.display = 'block';
+  
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const tColor = isDark ? '#A3A3A3' : '#6B7280';
+  const gColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+  
+  Chart.defaults.font.family = "'Inter', sans-serif";
+  Chart.defaults.color = tColor;
+  
+  const limited = hist.slice(0, 15).reverse();
+  const cData = limited.map(h => h.result.confidence);
+  const labels = limited.map((_, i) => `#${i+1}`);
+  
+  // Line Chart
+  if(charts.line) charts.line.destroy();
+  charts.line = new Chart(document.getElementById('lineChart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Clarity %',
+        data: cData,
+        borderColor: isDark ? '#FFFFFF' : '#111827',
+        backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(17,24,39,0.05)',
+        borderWidth: 2, pointRadius: 4, pointBackgroundColor: isDark ? '#FFF' : '#111',
+        tension: 0.3, fill: true
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: { grid: { color: gColor } },
+        y: { min: 0, max: 100, grid: { color: gColor } }
+      },
+      plugins: { legend: { display: false } }
+    }
+  });
+  
+  // Pie Chart
+  let pos=0, neu=0, neg=0;
+  hist.forEach(h => {
+    if(h.result.sentiment === 'Positive') pos++;
+    else if(h.result.sentiment === 'Neutral') neu++;
+    else neg++;
+  });
+  
+  if(charts.pie) charts.pie.destroy();
+  charts.pie = new Chart(document.getElementById('pieChart').getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Positive', 'Neutral', 'Negative'],
+      datasets: [{
+        data: [pos, neu, neg],
+        backgroundColor: ['#10B981', '#F59E0B', '#EF4444'],
+        borderWidth: 0, hoverOffset: 4
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '70%',
+      plugins: { legend: { position: 'bottom', labels: { color: tColor, padding: 20 } } }
+    }
+  });
+}
+
+/* EXPORT DASHBOARD to PDF */
+function exportDashboard() {
+  if(hist.length === 0) { toast("No data to export!"); return; }
+  const target = document.getElementById('exportTarget');
+  toast('Generating PDF document...');
+  
+  target.style.background = getComputedStyle(document.documentElement).getPropertyValue('--bg');
+  
+  html2canvas(target, { scale: 2, backgroundColor: null }).then(canvas => {
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new window.jspdf.jsPDF('p', 'mm', 'a4');
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+    pdf.save(`Sentiment_Analytics_${new Date().toISOString().slice(0,10)}.pdf`);
+    toast('Export complete!');
+  }).catch(e => {
+    toast('Failed to export PDF.');
+  });
+}
+
+/* COPY SUMMARY */
+function copyResult() {
+  if(!lastResult) return;
+  const summary = `Classroom Sentiment: ${lastResult.sentiment} ${CM[lastResult.sentiment].em}\nClarity: ${lastResult.confidence}%\n[Positive: ${lastResult.probabilities.Positive}% | Neutral: ${lastResult.probabilities.Neutral}% | Negative: ${lastResult.probabilities.Negative}%]\nGeneratated securely in-browser via SentimentAI.`;
+  navigator.clipboard.writeText(summary).then(() => {
+    toast('Summary copied to clipboard!');
+  });
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('s');
+  setTimeout(() => t.classList.remove('s'), 3000);
+}
+</script>
+{% endblock %}
